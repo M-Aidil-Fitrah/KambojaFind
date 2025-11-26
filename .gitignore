@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+.gitignore
+Project MK Penelusuran Informasi 2025.pdf
+
