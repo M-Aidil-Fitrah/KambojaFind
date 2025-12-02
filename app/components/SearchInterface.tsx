@@ -39,7 +39,7 @@ export default function SearchInterface() {
     setResults(null);
 
     try {
-      const response = await fetch('http://localhost:5000/api/search', {
+      const response = await fetch('/api/search', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -58,7 +58,7 @@ export default function SearchInterface() {
       const data = await response.json();
       setResults(data.results);
     } catch (err) {
-      setError('Failed to fetch search results. Make sure the API server is running on port 5000.');
+      setError('Failed to fetch search results. Please try again.');
       console.error(err);
     } finally {
       setLoading(false);
