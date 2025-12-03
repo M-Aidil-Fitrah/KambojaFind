@@ -10,6 +10,7 @@ type ArticleData = {
   title: string;
   url: string;
   source: string;
+  original_content: string;
   content: string;
   cleaned_content: string;
   image: string;
@@ -182,7 +183,7 @@ export default function ArticleDetailPage() {
             {/* Article Content */}
             <div className="mt-8 prose prose-lg max-w-none">
               <div className="text-lg text-slate-700 leading-relaxed whitespace-pre-line">
-                {article.content || article.cleaned_content}
+                {article.original_content || article.content || article.cleaned_content}
               </div>
             </div>
 
