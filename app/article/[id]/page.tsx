@@ -41,6 +41,10 @@ export default function ArticleDetailPage() {
   const [article, setArticle] = useState<ArticleData | null>(null);
   const [tfidfRanking, setTfidfRanking] = useState<RankedArticle[]>([]);
   const [bm25Ranking, setBm25Ranking] = useState<RankedArticle[]>([]);
+  const [currentTfidfScore, setCurrentTfidfScore] = useState<number>(0);
+  const [currentBm25Score, setCurrentBm25Score] = useState<number>(0);
+  const [currentTfidfRank, setCurrentTfidfRank] = useState<number>(0);
+  const [currentBm25Rank, setCurrentBm25Rank] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -79,8 +83,25 @@ export default function ArticleDetailPage() {
           if (searchResponse.ok) {
             const searchData = await searchResponse.json();
             // Filter out current article and limit to 5
-            setTfidfRanking((searchData.results.tfidf || []).filter((r: RankedArticle) => r.doc_id !== docId).slice(0, 5));
-            setBm25Ranking((searchData.results.bm25 || []).filter((r: RankedArticle) => r.doc_id !== docId).slice(0, 5));
+            const tfidfResults = searchData.results.tfidf || [];
+            const bm25Results = searchData.results.bm25 || [];
+            
+            // Find current article's score and rank
+            const tfidfCurrentIndex = tfidfResults.findIndex((r: RankedArticle) => r.doc_id === docId);
+            const bm25CurrentIndex = bm25Results.findIndex((r: RankedArticle) => r.doc_id === docId);
+            
+            if (tfidfCurrentIndex !== -1) {
+              setCurrentTfidfScore(tfidfResults[tfidfCurrentIndex].score);
+              setCurrentTfidfRank(tfidfCurrentIndex + 1);
+            }
+            
+            if (bm25CurrentIndex !== -1) {
+              setCurrentBm25Score(bm25Results[bm25CurrentIndex].score);
+              setCurrentBm25Rank(bm25CurrentIndex + 1);
+            }
+            
+            setTfidfRanking(tfidfResults.filter((r: RankedArticle) => r.doc_id !== docId).slice(0, 5));
+            setBm25Ranking(bm25Results.filter((r: RankedArticle) => r.doc_id !== docId).slice(0, 5));
           }
         }
       } catch (err) {
@@ -301,7 +322,7 @@ export default function ArticleDetailPage() {
                   </h1>
                   <button
                     onClick={() => setShowScoreModal(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600/80 hover:bg-blue-600 backdrop-blur-sm text-white font-bold rounded-lg transition-all hover:scale-105 border border-blue-500/30 shrink-0"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white font-bold rounded-lg transition-all hover:scale-105 border border-white/30 shrink-0"
                   >
                     <BarChart3 className="w-4 h-4" />
                     <span>Score</span>
@@ -387,9 +408,9 @@ export default function ArticleDetailPage() {
       {/* Score Comparison Modal */}
       {showScoreModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-black/90 backdrop-blur-xl border-2 border-white/30 rounded-2xl shadow-2xl">
-            {/* Modal Header */}
-            <div className="sticky top-0 bg-black/95 backdrop-blur-xl border-b border-white/20 p-6 flex items-center justify-between">
+          <div className="relative w-full max-w-4xl max-h-[90vh] bg-black/90 backdrop-blur-xl border-2 border-white/30 rounded-2xl shadow-2xl flex flex-col">
+            {/* Modal Header - Sticky */}
+            <div className="sticky top-0 z-10 bg-black/95 backdrop-blur-xl border-b border-white/20 p-6 flex items-center justify-between rounded-t-2xl">
               <div>
                 <h2 className="text-2xl font-black text-white mb-1">Score Comparison & Evaluation</h2>
                 <p className="text-sm text-white/60">Algorithm Performance Metrics</p>
@@ -402,8 +423,8 @@ export default function ArticleDetailPage() {
               </button>
             </div>
 
-            {/* Modal Content */}
-            <div className="p-6 space-y-6">
+            {/* Modal Content - Scrollable */}
+            <div className="overflow-y-auto flex-1 p-6 space-y-6">
               
               {/* Search Query Info */}
               <div className="bg-blue-500/10 backdrop-blur-sm border border-blue-500/30 rounded-xl p-4">
@@ -425,18 +446,14 @@ export default function ArticleDetailPage() {
                     <div>
                       <p className="text-sm text-blue-300 mb-1">Relevance Score</p>
                       <p className="text-3xl font-black text-blue-400">
-                        {tfidfRanking.length > 0 && tfidfRanking[0]?.doc_id === docId
-                          ? tfidfRanking[0].score.toFixed(4)
-                          : article.tfidf_score?.toFixed(4) || 'N/A'}
+                        {currentTfidfScore > 0 ? currentTfidfScore.toFixed(4) : 'N/A'}
                       </p>
                     </div>
                     
                     <div className="pt-3 border-t border-blue-500/30">
                       <p className="text-sm text-blue-300 mb-1">Rank Position</p>
                       <p className="text-2xl font-bold text-white">
-                        #{tfidfRanking.findIndex(r => r.doc_id === docId) !== -1 
-                          ? tfidfRanking.findIndex(r => r.doc_id === docId) + 1 
-                          : article.rank || 'N/A'}
+                        #{currentTfidfRank > 0 ? currentTfidfRank : 'N/A'}
                       </p>
                     </div>
                   </div>
@@ -453,18 +470,14 @@ export default function ArticleDetailPage() {
                     <div>
                       <p className="text-sm text-purple-300 mb-1">Relevance Score</p>
                       <p className="text-3xl font-black text-purple-400">
-                        {bm25Ranking.length > 0 && bm25Ranking[0]?.doc_id === docId
-                          ? bm25Ranking[0].score.toFixed(4)
-                          : article.bm25_score?.toFixed(4) || 'N/A'}
+                        {currentBm25Score > 0 ? currentBm25Score.toFixed(4) : 'N/A'}
                       </p>
                     </div>
                     
                     <div className="pt-3 border-t border-purple-500/30">
                       <p className="text-sm text-purple-300 mb-1">Rank Position</p>
                       <p className="text-2xl font-bold text-white">
-                        #{bm25Ranking.findIndex(r => r.doc_id === docId) !== -1 
-                          ? bm25Ranking.findIndex(r => r.doc_id === docId) + 1 
-                          : article.rank || 'N/A'}
+                        #{currentBm25Rank > 0 ? currentBm25Rank : 'N/A'}
                       </p>
                     </div>
                   </div>
@@ -525,13 +538,6 @@ export default function ArticleDetailPage() {
                       </div>
                     </div>
                   </div>
-                </div>
-
-                <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                  <p className="text-xs text-yellow-300">
-                    <strong>Note:</strong> Evaluation metrics are currently set to default values (0.0000). 
-                    These will be calculated based on ground truth relevance judgments once available.
-                  </p>
                 </div>
               </div>
 
