@@ -14,6 +14,7 @@ type SearchResult = {
     url?: string;
     content?: string;
     cleaned_content?: string;
+    original_content?: string;
   };
 };
 
@@ -85,12 +86,14 @@ export default function SearchResultsPage() {
     const imagePath = getImagePath(result.doc_id);
     const maxScore = algorithm === 'tfidf' ? 1 : 30; // Approximate max scores
     
-    // Extract preview text from cleaned_content
-    const previewText = result.document.cleaned_content 
-      ? result.document.cleaned_content.substring(0, 150) + '...'
-      : result.document.content 
-        ? result.document.content.substring(0, 150) + '...'
-        : 'No preview available';
+    // Extract preview text from original_content first, then fallback to cleaned_content
+    const previewText = result.document.original_content 
+      ? result.document.original_content.substring(0, 150) + '...'
+      : result.document.cleaned_content 
+        ? result.document.cleaned_content.substring(0, 150) + '...'
+        : result.document.content 
+          ? result.document.content.substring(0, 150) + '...'
+          : 'No preview available';
 
     return (
       <Link 
