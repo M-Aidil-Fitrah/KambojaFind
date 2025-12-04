@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Loader2, ArrowLeft, ExternalLink, Calendar, Tag, TrendingUp, Zap } from 'lucide-react';
+import { Loader2, ArrowLeft, ExternalLink, Calendar, Tag, TrendingUp, Zap, BarChart3, X } from 'lucide-react';
 import Link from 'next/link';
 import DarkVeil from '@/app/components/DarkVeil-Background';
 
@@ -41,6 +41,8 @@ export default function ArticleDetailPage() {
   const [article, setArticle] = useState<ArticleData | null>(null);
   const [tfidfRanking, setTfidfRanking] = useState<RankedArticle[]>([]);
   const [bm25Ranking, setBm25Ranking] = useState<RankedArticle[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [showScoreModal, setShowScoreModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -61,6 +63,7 @@ export default function ArticleDetailPage() {
 
         // Fetch rankings based on article title
         if (data.title) {
+          setSearchQuery(data.title); // Save the query
           const searchResponse = await fetch('/api/search', {
             method: 'POST',
             headers: {
@@ -243,13 +246,24 @@ export default function ArticleDetailPage() {
         {/* Header Navigation */}
         <div className="bg-black/30 backdrop-blur-md border-b border-white/20 sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <button
-              onClick={() => router.back()}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-black/40 hover:bg-black/50 backdrop-blur-md text-white rounded-lg transition-all border border-white/20 hover:scale-105"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="font-semibold">Back</span>
-            </button>
+            <div className="flex items-center justify-between gap-4">
+              <button
+                onClick={() => router.back()}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-black/40 hover:bg-black/50 backdrop-blur-md text-white rounded-lg transition-all border border-white/20 hover:scale-105"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span className="font-semibold">Back</span>
+              </button>
+              
+              {searchQuery && (
+                <div className="flex-1 max-w-2xl">
+                  <div className="bg-black/40 backdrop-blur-md border border-white/20 rounded-lg px-4 py-2">
+                    <p className="text-xs text-white/60 mb-1">Search Query:</p>
+                    <p className="text-sm text-white font-semibold truncate">{searchQuery}</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -281,9 +295,18 @@ export default function ArticleDetailPage() {
 
               {/* Article Header & Content */}
               <div className="bg-black/30 backdrop-blur-md rounded-xl p-6 border border-white/20">
-                <h1 className="text-2xl md:text-3xl font-black text-white leading-tight mb-4">
-                  {article.title}
-                </h1>
+                <div className="flex items-start justify-between gap-4 mb-4">
+                  <h1 className="text-2xl md:text-3xl font-black text-white leading-tight flex-1">
+                    {article.title}
+                  </h1>
+                  <button
+                    onClick={() => setShowScoreModal(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600/80 hover:bg-blue-600 backdrop-blur-sm text-white font-bold rounded-lg transition-all hover:scale-105 border border-blue-500/30 shrink-0"
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    <span>Score</span>
+                  </button>
+                </div>
 
                 {/* Meta Info */}
                 <div className="flex flex-wrap items-center gap-3 pb-4 mb-4 border-b border-white/20">
@@ -360,6 +383,171 @@ export default function ArticleDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Score Comparison Modal */}
+      {showScoreModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-black/90 backdrop-blur-xl border-2 border-white/30 rounded-2xl shadow-2xl">
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-black/95 backdrop-blur-xl border-b border-white/20 p-6 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-black text-white mb-1">Score Comparison & Evaluation</h2>
+                <p className="text-sm text-white/60">Algorithm Performance Metrics</p>
+              </div>
+              <button
+                onClick={() => setShowScoreModal(false)}
+                className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-all border border-white/20"
+              >
+                <X className="w-6 h-6 text-white" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-6">
+              
+              {/* Search Query Info */}
+              <div className="bg-blue-500/10 backdrop-blur-sm border border-blue-500/30 rounded-xl p-4">
+                <p className="text-xs text-blue-300 font-semibold mb-1">Current Search Query:</p>
+                <p className="text-sm text-white font-bold">{searchQuery}</p>
+              </div>
+
+              {/* Score Comparison */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                {/* TF-IDF Score */}
+                <div className="bg-blue-500/10 backdrop-blur-sm border border-blue-500/30 rounded-xl p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <Zap className="w-6 h-6 text-blue-400" />
+                    <h3 className="text-xl font-bold text-white">TF-IDF Algorithm</h3>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm text-blue-300 mb-1">Relevance Score</p>
+                      <p className="text-3xl font-black text-blue-400">
+                        {tfidfRanking.length > 0 && tfidfRanking[0]?.doc_id === docId
+                          ? tfidfRanking[0].score.toFixed(4)
+                          : article.tfidf_score?.toFixed(4) || 'N/A'}
+                      </p>
+                    </div>
+                    
+                    <div className="pt-3 border-t border-blue-500/30">
+                      <p className="text-sm text-blue-300 mb-1">Rank Position</p>
+                      <p className="text-2xl font-bold text-white">
+                        #{tfidfRanking.findIndex(r => r.doc_id === docId) !== -1 
+                          ? tfidfRanking.findIndex(r => r.doc_id === docId) + 1 
+                          : article.rank || 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* BM25 Score */}
+                <div className="bg-purple-500/10 backdrop-blur-sm border border-purple-500/30 rounded-xl p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <TrendingUp className="w-6 h-6 text-purple-400" />
+                    <h3 className="text-xl font-bold text-white">BM25 Algorithm</h3>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm text-purple-300 mb-1">Relevance Score</p>
+                      <p className="text-3xl font-black text-purple-400">
+                        {bm25Ranking.length > 0 && bm25Ranking[0]?.doc_id === docId
+                          ? bm25Ranking[0].score.toFixed(4)
+                          : article.bm25_score?.toFixed(4) || 'N/A'}
+                      </p>
+                    </div>
+                    
+                    <div className="pt-3 border-t border-purple-500/30">
+                      <p className="text-sm text-purple-300 mb-1">Rank Position</p>
+                      <p className="text-2xl font-bold text-white">
+                        #{bm25Ranking.findIndex(r => r.doc_id === docId) !== -1 
+                          ? bm25Ranking.findIndex(r => r.doc_id === docId) + 1 
+                          : article.rank || 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Evaluation Metrics */}
+              <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-6">
+                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-white" />
+                  Evaluation Metrics
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  
+                  {/* TF-IDF Metrics */}
+                  <div>
+                    <h4 className="text-sm font-bold text-blue-400 mb-3">TF-IDF Performance</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center p-3 bg-black/40 rounded-lg border border-white/10">
+                        <span className="text-sm text-white/70">Precision</span>
+                        <span className="text-sm font-bold text-white">0.0000</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-black/40 rounded-lg border border-white/10">
+                        <span className="text-sm text-white/70">Recall</span>
+                        <span className="text-sm font-bold text-white">0.0000</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-black/40 rounded-lg border border-white/10">
+                        <span className="text-sm text-white/70">F1 Score</span>
+                        <span className="text-sm font-bold text-white">0.0000</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-black/40 rounded-lg border border-white/10">
+                        <span className="text-sm text-white/70">MAP</span>
+                        <span className="text-sm font-bold text-white">0.0000</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* BM25 Metrics */}
+                  <div>
+                    <h4 className="text-sm font-bold text-purple-400 mb-3">BM25 Performance</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center p-3 bg-black/40 rounded-lg border border-white/10">
+                        <span className="text-sm text-white/70">Precision</span>
+                        <span className="text-sm font-bold text-white">0.0000</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-black/40 rounded-lg border border-white/10">
+                        <span className="text-sm text-white/70">Recall</span>
+                        <span className="text-sm font-bold text-white">0.0000</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-black/40 rounded-lg border border-white/10">
+                        <span className="text-sm text-white/70">F1 Score</span>
+                        <span className="text-sm font-bold text-white">0.0000</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-black/40 rounded-lg border border-white/10">
+                        <span className="text-sm text-white/70">MAP</span>
+                        <span className="text-sm font-bold text-white">0.0000</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                  <p className="text-xs text-yellow-300">
+                    <strong>Note:</strong> Evaluation metrics are currently set to default values (0.0000). 
+                    These will be calculated based on ground truth relevance judgments once available.
+                  </p>
+                </div>
+              </div>
+
+              {/* Close Button */}
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setShowScoreModal(false)}
+                  className="px-6 py-3 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white font-bold rounded-lg transition-all border border-white/20"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
