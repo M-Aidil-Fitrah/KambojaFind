@@ -73,6 +73,9 @@ export default function SearchResultsPage() {
 
   const getImagePath = (docId: string | number) => {
     const numericId = String(docId).replace(/\D/g, '');
+    // Try multiple formats
+    const formats = ['jpeg', 'jpg', 'png', 'webp'];
+    // Default to first format, actual error handling will be done in img onError
     return `/images/article_${numericId}.jpeg`;
   };
 
@@ -81,22 +84,41 @@ export default function SearchResultsPage() {
 
     const imagePath = getImagePath(result.doc_id);
     const maxScore = algorithm === 'tfidf' ? 1 : 30; // Approximate max scores
+    
+    // Extract preview text from cleaned_content
+    const previewText = result.document.cleaned_content 
+      ? result.document.cleaned_content.substring(0, 150) + '...'
+      : result.document.content 
+        ? result.document.content.substring(0, 150) + '...'
+        : 'No preview available';
 
     return (
       <Link 
         href={`/article/${result.doc_id}`}
         key={`${algorithm}-${result.doc_id}`}
-        className="group block bg-white/95 backdrop-blur-xl border border-white/30 rounded-2xl overflow-hidden hover:shadow-xl hover:border-white/50 transition-all duration-300"
+        className="group block bg-white/95 backdrop-blur-xl border border-white/30 rounded-2xl overflow-hidden hover:shadow-xl hover:border-white/50 transition-all duration-300 h-full flex flex-col"
       >
-        {/* Image */}
-        <div className="relative aspect-video overflow-hidden bg-slate-200">
+        {/* Image - Fixed aspect ratio */}
+        <div className="relative aspect-video overflow-hidden bg-slate-200 flex-shrink-0">
           <img 
             src={imagePath}
             alt={result.document.title || 'Article image'}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
-              target.src = '/images/default.jpg';
+              const numericId = String(result.doc_id).replace(/\D/g, '');
+              const currentSrc = target.src;
+              
+              // Try different formats
+              if (currentSrc.includes('.jpeg')) {
+                target.src = `/images/article_${numericId}.jpg`;
+              } else if (currentSrc.includes('.jpg')) {
+                target.src = `/images/article_${numericId}.png`;
+              } else if (currentSrc.includes('.png')) {
+                target.src = `/images/article_${numericId}.webp`;
+              } else {
+                target.src = '/images/default.jpg';
+              }
             }}
           />
           {/* Rank Badge */}
@@ -105,20 +127,20 @@ export default function SearchResultsPage() {
           </div>
         </div>
 
-        {/* Content */}
-        <div className="p-5">
-          <h3 className="text-lg font-bold text-slate-900 leading-tight mb-3 line-clamp-2 group-hover:text-slate-700 transition-colors">
+        {/* Content - Flexible but limited */}
+        <div className="p-5 flex flex-col flex-grow">
+          {/* Title - Fixed 2 lines */}
+          <h3 className="text-lg font-bold text-slate-900 leading-tight mb-3 line-clamp-2 min-h-[3.5rem] group-hover:text-slate-700 transition-colors">
             {result.document.title || 'Untitled Document'}
           </h3>
           
-          {result.document.cleaned_content && (
-            <p className="text-sm text-slate-600 leading-relaxed mb-4 line-clamp-2">
-              {result.document.cleaned_content.substring(0, 120)}...
-            </p>
-          )}
+          {/* Preview - Fixed 2 lines */}
+          <p className="text-sm text-slate-600 leading-relaxed mb-4 line-clamp-2 min-h-[2.5rem] flex-grow">
+            {previewText}
+          </p>
 
-          {/* Score */}
-          <div className="flex items-center justify-between pt-3 border-t border-slate-200">
+          {/* Score - Fixed at bottom */}
+          <div className="flex items-center justify-between pt-3 border-t border-slate-200 mt-auto">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
               Score
             </span>
