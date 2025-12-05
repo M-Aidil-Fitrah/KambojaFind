@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Loader2, Zap, TrendingUp, ArrowLeft, Eye, Search } from 'lucide-react';
 import Link from 'next/link';
@@ -23,7 +23,7 @@ type AlgorithmResults = {
   bm25?: SearchResult[];
 };
 
-export default function SearchResultsPage() {
+function SearchResultsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const query = searchParams.get('q') || '';
@@ -471,5 +471,31 @@ export default function SearchResultsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function SearchResultsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen relative overflow-hidden bg-black flex items-center justify-center">
+        <div className="fixed inset-0 w-full h-full">
+          <DarkVeil 
+            hueShift={0}
+            noiseIntensity={0.05}
+            scanlineIntensity={0.1}
+            speed={0.6}
+            scanlineFrequency={1.5}
+            warpAmount={0.6}
+            resolutionScale={1}
+          />
+        </div>
+        <div className="relative z-10 text-center">
+          <Loader2 className="w-16 h-16 text-white animate-spin mx-auto mb-4" />
+          <p className="text-xl font-bold text-white">Loading...</p>
+        </div>
+      </div>
+    }>
+      <SearchResultsContent />
+    </Suspense>
   );
 }
