@@ -63,6 +63,11 @@ function ArticleDetailContent() {
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [evaluationData, setEvaluationData] = useState<{
+    tfidf: { precision: number; recall: number; f1Score: number; averagePrecision?: number; avgPrecision?: number };
+    bm25: { precision: number; recall: number; f1Score: number; averagePrecision?: number; avgPrecision?: number };
+  } | null>(null);
+  const [loadingEvaluation, setLoadingEvaluation] = useState(false);
 
   useEffect(() => {
     const fetchArticle = async () => {
@@ -165,6 +170,46 @@ function ArticleDetailContent() {
       fetchArticle();
     }
   }, [docId, searchParams]);
+
+  // Fetch evaluation metrics when modal is opened
+  useEffect(() => {
+    const fetchEvaluation = async () => {
+      if (!showScoreModal || !searchQuery || evaluationData) return;
+      
+      setLoadingEvaluation(true);
+      try {
+        const response = await fetch('/api/evaluate-query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: searchQuery }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setEvaluationData({
+            tfidf: {
+              precision: data.tfidf.precision,
+              recall: data.tfidf.recall,
+              f1Score: data.tfidf.f1Score,
+              averagePrecision: data.tfidf.averagePrecision || data.tfidf.avgPrecision,
+            },
+            bm25: {
+              precision: data.bm25.precision,
+              recall: data.bm25.recall,
+              f1Score: data.bm25.f1Score,
+              averagePrecision: data.bm25.averagePrecision || data.bm25.avgPrecision,
+            },
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch evaluation:', err);
+      } finally {
+        setLoadingEvaluation(false);
+      }
+    };
+
+    fetchEvaluation();
+  }, [showScoreModal, searchQuery]);
 
   const getImagePath = (image: string | number) => {
     const imageStr = String(image);
@@ -548,19 +593,27 @@ function ArticleDetailContent() {
                     <div className="space-y-2">
                       <div className="flex justify-between items-center p-3 bg-black/40 rounded-lg border border-white/10">
                         <span className="text-sm text-white/70">Precision</span>
-                        <span className="text-sm font-bold text-white">0.0000</span>
+                        <span className="text-sm font-bold text-white">
+                          {loadingEvaluation ? '...' : (evaluationData?.tfidf?.precision !== undefined ? evaluationData.tfidf.precision.toFixed(4) : 'N/A')}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center p-3 bg-black/40 rounded-lg border border-white/10">
                         <span className="text-sm text-white/70">Recall</span>
-                        <span className="text-sm font-bold text-white">0.0000</span>
+                        <span className="text-sm font-bold text-white">
+                          {loadingEvaluation ? '...' : (evaluationData?.tfidf?.recall !== undefined ? evaluationData.tfidf.recall.toFixed(4) : 'N/A')}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center p-3 bg-black/40 rounded-lg border border-white/10">
                         <span className="text-sm text-white/70">F1 Score</span>
-                        <span className="text-sm font-bold text-white">0.0000</span>
+                        <span className="text-sm font-bold text-white">
+                          {loadingEvaluation ? '...' : (evaluationData?.tfidf?.f1Score !== undefined ? evaluationData.tfidf.f1Score.toFixed(4) : 'N/A')}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center p-3 bg-black/40 rounded-lg border border-white/10">
                         <span className="text-sm text-white/70">MAP</span>
-                        <span className="text-sm font-bold text-white">0.0000</span>
+                        <span className="text-sm font-bold text-white">
+                          {loadingEvaluation ? '...' : (evaluationData?.tfidf?.averagePrecision !== undefined || evaluationData?.tfidf?.avgPrecision !== undefined ? (evaluationData.tfidf.averagePrecision || evaluationData.tfidf.avgPrecision || 0).toFixed(4) : 'N/A')}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -571,19 +624,27 @@ function ArticleDetailContent() {
                     <div className="space-y-2">
                       <div className="flex justify-between items-center p-3 bg-black/40 rounded-lg border border-white/10">
                         <span className="text-sm text-white/70">Precision</span>
-                        <span className="text-sm font-bold text-white">0.0000</span>
+                        <span className="text-sm font-bold text-white">
+                          {loadingEvaluation ? '...' : (evaluationData?.bm25?.precision !== undefined ? evaluationData.bm25.precision.toFixed(4) : 'N/A')}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center p-3 bg-black/40 rounded-lg border border-white/10">
                         <span className="text-sm text-white/70">Recall</span>
-                        <span className="text-sm font-bold text-white">0.0000</span>
+                        <span className="text-sm font-bold text-white">
+                          {loadingEvaluation ? '...' : (evaluationData?.bm25?.recall !== undefined ? evaluationData.bm25.recall.toFixed(4) : 'N/A')}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center p-3 bg-black/40 rounded-lg border border-white/10">
                         <span className="text-sm text-white/70">F1 Score</span>
-                        <span className="text-sm font-bold text-white">0.0000</span>
+                        <span className="text-sm font-bold text-white">
+                          {loadingEvaluation ? '...' : (evaluationData?.bm25?.f1Score !== undefined ? evaluationData.bm25.f1Score.toFixed(4) : 'N/A')}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center p-3 bg-black/40 rounded-lg border border-white/10">
                         <span className="text-sm text-white/70">MAP</span>
-                        <span className="text-sm font-bold text-white">0.0000</span>
+                        <span className="text-sm font-bold text-white">
+                          {loadingEvaluation ? '...' : (evaluationData?.bm25?.averagePrecision !== undefined || evaluationData?.bm25?.avgPrecision !== undefined ? (evaluationData.bm25.averagePrecision || evaluationData.bm25.avgPrecision || 0).toFixed(4) : 'N/A')}
+                        </span>
                       </div>
                     </div>
                   </div>
