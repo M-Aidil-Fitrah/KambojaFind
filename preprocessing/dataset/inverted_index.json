@@ -2,10 +2,6 @@
   "inverted_index": {
     "kbri": [
       {
-        "doc_id": "https://www.antaranews.com/berita/5240117/kbri-phnom-penh-107-wni-tersangka-penipuan-daring-sehat-siap-pulang",
-        "position": 0
-      },
-      {
         "doc_id": 26,
         "position": 0
       },
@@ -144,10 +140,6 @@
     ],
     "phnom": [
       {
-        "doc_id": "https://www.antaranews.com/berita/5240117/kbri-phnom-penh-107-wni-tersangka-penipuan-daring-sehat-siap-pulang",
-        "position": 1
-      },
-      {
         "doc_id": 26,
         "position": 1
       },
@@ -210,10 +202,6 @@
     ],
     "penh": [
       {
-        "doc_id": "https://www.antaranews.com/berita/5240117/kbri-phnom-penh-107-wni-tersangka-penipuan-daring-sehat-siap-pulang",
-        "position": 2
-      },
-      {
         "doc_id": 26,
         "position": 2
       },
@@ -275,10 +263,6 @@
       }
     ],
     "wni": [
-      {
-        "doc_id": "https://www.antaranews.com/berita/5240117/kbri-phnom-penh-107-wni-tersangka-penipuan-daring-sehat-siap-pulang",
-        "position": 3
-      },
       {
         "doc_id": 1,
         "position": 3
@@ -1478,10 +1462,6 @@
     ],
     "sangka": [
       {
-        "doc_id": "https://www.antaranews.com/berita/5240117/kbri-phnom-penh-107-wni-tersangka-penipuan-daring-sehat-siap-pulang",
-        "position": 4
-      },
-      {
         "doc_id": 26,
         "position": 4
       },
@@ -1499,10 +1479,6 @@
       }
     ],
     "tipu": [
-      {
-        "doc_id": "https://www.antaranews.com/berita/5240117/kbri-phnom-penh-107-wni-tersangka-penipuan-daring-sehat-siap-pulang",
-        "position": 5
-      },
       {
         "doc_id": 4,
         "position": 7
@@ -1850,10 +1826,6 @@
     ],
     "daring": [
       {
-        "doc_id": "https://www.antaranews.com/berita/5240117/kbri-phnom-penh-107-wni-tersangka-penipuan-daring-sehat-siap-pulang",
-        "position": 6
-      },
-      {
         "doc_id": 26,
         "position": 6
       },
@@ -1892,10 +1864,6 @@
     ],
     "sehat": [
       {
-        "doc_id": "https://www.antaranews.com/berita/5240117/kbri-phnom-penh-107-wni-tersangka-penipuan-daring-sehat-siap-pulang",
-        "position": 7
-      },
-      {
         "doc_id": 26,
         "position": 7
       },
@@ -1905,10 +1873,6 @@
       }
     ],
     "pulang": [
-      {
-        "doc_id": "https://www.antaranews.com/berita/5240117/kbri-phnom-penh-107-wni-tersangka-penipuan-daring-sehat-siap-pulang",
-        "position": 8
-      },
       {
         "doc_id": 6,
         "position": 5
@@ -15290,7 +15254,6 @@
     ]
   },
   "doc_lengths": {
-    "https://www.antaranews.com/berita/5240117/kbri-phnom-penh-107-wni-tersangka-penipuan-daring-sehat-siap-pulang": 9,
     "1": 8,
     "2": 11,
     "3": 8,
