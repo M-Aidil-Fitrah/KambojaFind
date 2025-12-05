@@ -146,3 +146,23 @@ export class TFIDFSearchEngine {
     return scores.slice(0, topK);
   }
 }
+
+// Helper function for easy search
+export function tfidfSearch(query: string, indexData: IndexData, corpus: Document[], topK: number = 10): SearchResult[] {
+  const engine = new TFIDFSearchEngine(indexData, corpus);
+  return engine.search(query, topK);
+}
+
+// Async wrapper for evaluation that loads data
+export async function tfidfSearchAsync(query: string, topK: number = 10): Promise<SearchResult[]> {
+  const fs = await import('fs/promises');
+  const path = await import('path');
+  
+  const indexPath = path.join(process.cwd(), 'preprocessing', 'dataset', 'inverted_index.json');
+  const corpusPath = path.join(process.cwd(), 'preprocessing', 'dataset', 'preprocessed_corpus.json');
+  
+  const indexData = JSON.parse(await fs.readFile(indexPath, 'utf-8'));
+  const corpus = JSON.parse(await fs.readFile(corpusPath, 'utf-8'));
+  
+  return tfidfSearch(query, indexData, corpus, topK);
+}

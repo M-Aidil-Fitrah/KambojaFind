@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Loader2, Zap, TrendingUp, ArrowLeft, Eye, Search } from 'lucide-react';
+import { Loader2, Zap, TrendingUp, ArrowLeft, Eye, Search, BarChart3, X } from 'lucide-react';
 import Link from 'next/link';
 import DarkVeil from '@/app/components/DarkVeil-Background';
 
@@ -23,6 +23,27 @@ type AlgorithmResults = {
   bm25?: SearchResult[];
 };
 
+type EvaluationMetrics = {
+  precision: number;
+  recall: number;
+  f1Score: number;
+  map?: number;
+  averagePrecision?: number;
+  matchedGroundTruth?: string;
+  similarity?: number;
+  relevantRetrieved?: number[];
+  retrievedDocs?: number[];
+  relevantDocs?: number[];
+};
+
+type EvaluationData = {
+  tfidf: EvaluationMetrics;
+  bm25: EvaluationMetrics;
+  timestamp: string;
+  totalQueries?: number;
+  isDynamic?: boolean; // Flag untuk membedakan evaluasi dinamis vs static
+};
+
 function SearchResultsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -35,6 +56,9 @@ function SearchResultsContent() {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [showEvaluation, setShowEvaluation] = useState(false);
+  const [evaluationData, setEvaluationData] = useState<EvaluationData | null>(null);
+  const [evaluationLoading, setEvaluationLoading] = useState(false);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -80,6 +104,10 @@ function SearchResultsContent() {
       router.push('/');
       return;
     }
+
+    // Reset evaluation data ketika query berubah
+    setEvaluationData(null);
+    setShowEvaluation(false);
 
     const fetchResults = async () => {
       setLoading(true);
@@ -155,6 +183,70 @@ function SearchResultsContent() {
         setShowSuggestions(false);
         setSelectedIndex(-1);
         break;
+    }
+  };
+
+  const handleEvaluationClick = async () => {
+    setShowEvaluation(true);
+    
+    // Selalu fetch data baru, jangan gunakan cache
+    setEvaluationLoading(true);
+    
+    try {
+      // Gunakan API evaluate-query untuk evaluasi dinamis terhadap query saat ini
+      const response = await fetch('/api/evaluate-query', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: query.trim(),
+          topK: 50
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch evaluation data');
+      }
+      
+      const result = await response.json();
+      
+      console.log('Evaluation API Response:', result);
+      
+      if (result.tfidf && result.bm25) {
+        setEvaluationData({
+          tfidf: {
+            precision: result.tfidf.precision,
+            recall: result.tfidf.recall,
+            f1Score: result.tfidf.f1Score,
+            averagePrecision: result.tfidf.averagePrecision,
+            matchedGroundTruth: result.tfidf.matchedGroundTruth,
+            similarity: result.tfidf.similarity,
+            relevantRetrieved: result.tfidf.relevantRetrieved,
+            retrievedDocs: result.tfidf.retrievedDocs,
+            relevantDocs: result.tfidf.relevantDocs
+          },
+          bm25: {
+            precision: result.bm25.precision,
+            recall: result.bm25.recall,
+            f1Score: result.bm25.f1Score,
+            averagePrecision: result.bm25.averagePrecision,
+            matchedGroundTruth: result.bm25.matchedGroundTruth,
+            similarity: result.bm25.similarity,
+            relevantRetrieved: result.bm25.relevantRetrieved,
+            retrievedDocs: result.bm25.retrievedDocs,
+            relevantDocs: result.bm25.relevantDocs
+          },
+          timestamp: result.timestamp,
+          isDynamic: true
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch evaluation:', err);
+      alert('Failed to load evaluation data. Please try again.');
+      setShowEvaluation(false);
+    } finally {
+      setEvaluationLoading(false);
     }
   };
 
@@ -341,6 +433,15 @@ function SearchResultsContent() {
               <span className="font-semibold">Back to Search</span>
             </Link>
 
+            {/* Evaluation Metrics Button */}
+            <button
+              onClick={handleEvaluationClick}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-xl text-white rounded-xl transition-all border border-white/20 hover:scale-105"
+            >
+              <BarChart3 className="w-5 h-5" />
+              <span className="font-semibold">View Evaluation Metrics</span>
+            </button>
+
             {/* Search Bar */}
             <form onSubmit={handleSearch} className="flex-1 max-w-2xl">
               <div className="relative" ref={suggestionsRef}>
@@ -470,6 +571,251 @@ function SearchResultsContent() {
           </div>
         )}
       </div>
+
+      {/* Evaluation Metrics Modal */}
+      {showEvaluation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-black/95 backdrop-blur-xl border-2 border-white/30 rounded-3xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <BarChart3 className="w-8 h-8 text-white" />
+                <h2 className="text-3xl font-black text-white">Evaluation Metrics</h2>
+              </div>
+              <button
+                onClick={() => setShowEvaluation(false)}
+                className="p-2 hover:bg-white/10 rounded-full transition-all"
+              >
+                <X className="w-6 h-6 text-white" />
+              </button>
+            </div>
+
+            {evaluationLoading ? (
+              <div className="text-center py-12">
+                <Loader2 className="w-12 h-12 text-white animate-spin mx-auto mb-4" />
+                <p className="text-white/70">Loading evaluation data...</p>
+              </div>
+            ) : evaluationData ? (
+              <div>
+                {/* Info */}
+                <div className="mb-8 pb-6 border-b border-white/20">
+                  {evaluationData.isDynamic ? (
+                    <>
+                      <p className="text-white/70 text-sm mb-2">
+                        Query: <span className="text-white font-bold">&quot;{query}&quot;</span>
+                      </p>
+                      <p className="text-white/70 text-sm">
+                        Evaluated at: <span className="text-white font-bold">{new Date(evaluationData.timestamp).toLocaleString()}</span>
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-white/70 text-sm mb-2">
+                        Total Queries Evaluated: <span className="text-white font-bold">{evaluationData.totalQueries}</span>
+                      </p>
+                      <p className="text-white/70 text-sm">
+                        Last Updated: <span className="text-white font-bold">{new Date(evaluationData.timestamp).toLocaleString()}</span>
+                      </p>
+                    </>
+                  )}
+                </div>
+
+                {/* Metrics Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* TF-IDF Performance */}
+                  <div className="bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                      <Zap className="w-6 h-6 text-white" />
+                      <h3 className="text-2xl font-black text-white">TF-IDF Performance</h3>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      {/* Precision */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-white/70 font-medium">Precision</span>
+                          <span className="text-white font-black text-xl">
+                            {evaluationData.tfidf.precision.toFixed(4)}
+                          </span>
+                        </div>
+                        <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-white rounded-full transition-all"
+                            style={{ width: `${evaluationData.tfidf.precision * 100}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Recall */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-white/70 font-medium">Recall</span>
+                          <span className="text-white font-black text-xl">
+                            {evaluationData.tfidf.recall.toFixed(4)}
+                          </span>
+                        </div>
+                        <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-white rounded-full transition-all"
+                            style={{ width: `${evaluationData.tfidf.recall * 100}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* F1 Score */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-white/70 font-medium">F1 Score</span>
+                          <span className="text-white font-black text-xl">
+                            {evaluationData.tfidf.f1Score.toFixed(4)}
+                          </span>
+                        </div>
+                        <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-white rounded-full transition-all"
+                            style={{ width: `${evaluationData.tfidf.f1Score * 100}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* MAP / Average Precision */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-white/70 font-medium">
+                            {evaluationData.isDynamic ? 'Avg Precision' : 'MAP'}
+                          </span>
+                          <span className="text-white font-black text-xl">
+                            {(evaluationData.tfidf.averagePrecision || evaluationData.tfidf.map || 0).toFixed(4)}
+                          </span>
+                        </div>
+                        <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-white rounded-full transition-all"
+                            style={{ width: `${(evaluationData.tfidf.averagePrecision || evaluationData.tfidf.map || 0) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* BM25 Performance */}
+                  <div className="bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                      <TrendingUp className="w-6 h-6 text-white" />
+                      <h3 className="text-2xl font-black text-white">BM25 Performance</h3>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      {/* Precision */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-white/70 font-medium">Precision</span>
+                          <span className="text-white font-black text-xl">
+                            {evaluationData.bm25.precision.toFixed(4)}
+                          </span>
+                        </div>
+                        <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-white rounded-full transition-all"
+                            style={{ width: `${evaluationData.bm25.precision * 100}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Recall */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-white/70 font-medium">Recall</span>
+                          <span className="text-white font-black text-xl">
+                            {evaluationData.bm25.recall.toFixed(4)}
+                          </span>
+                        </div>
+                        <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-white rounded-full transition-all"
+                            style={{ width: `${evaluationData.bm25.recall * 100}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* F1 Score */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-white/70 font-medium">F1 Score</span>
+                          <span className="text-white font-black text-xl">
+                            {evaluationData.bm25.f1Score.toFixed(4)}
+                          </span>
+                        </div>
+                        <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-white rounded-full transition-all"
+                            style={{ width: `${evaluationData.bm25.f1Score * 100}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* MAP / Average Precision */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-white/70 font-medium">
+                            {evaluationData.isDynamic ? 'Avg Precision' : 'MAP'}
+                          </span>
+                          <span className="text-white font-black text-xl">
+                            {(evaluationData.bm25.averagePrecision || evaluationData.bm25.map || 0).toFixed(4)}
+                          </span>
+                        </div>
+                        <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-white rounded-full transition-all"
+                            style={{ width: `${(evaluationData.bm25.averagePrecision || evaluationData.bm25.map || 0) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Comparison Summary */}
+                <div className="mt-8 bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6">
+                  <h3 className="text-xl font-black text-white mb-4">Performance Comparison</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center">
+                      <p className="text-white/70 text-sm mb-1">Precision Winner</p>
+                      <p className="text-white font-black text-lg">
+                        {evaluationData.bm25.precision > evaluationData.tfidf.precision ? 'BM25' : 'TF-IDF'}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-white/70 text-sm mb-1">Recall Winner</p>
+                      <p className="text-white font-black text-lg">
+                        {evaluationData.bm25.recall > evaluationData.tfidf.recall ? 'BM25' : 'TF-IDF'}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-white/70 text-sm mb-1">F1 Score Winner</p>
+                      <p className="text-white font-black text-lg">
+                        {evaluationData.bm25.f1Score > evaluationData.tfidf.f1Score ? 'BM25' : 'TF-IDF'}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-white/70 text-sm mb-1">
+                        {evaluationData.isDynamic ? 'Avg Precision Winner' : 'MAP Winner'}
+                      </p>
+                      <p className="text-white font-black text-lg">
+                        {(evaluationData.bm25.averagePrecision || evaluationData.bm25.map || 0) > (evaluationData.tfidf.averagePrecision || evaluationData.tfidf.map || 0) ? 'BM25' : 'TF-IDF'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-white/70">No evaluation data available</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
