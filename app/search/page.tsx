@@ -183,7 +183,7 @@ function SearchResultsContent() {
 
     return (
       <Link 
-        href={`/article/${result.doc_id}`}
+        href={`/article/${result.doc_id}?q=${encodeURIComponent(query)}`}
         key={`${algorithm}-${result.doc_id}`}
         className="group block bg-white/95 backdrop-blur-xl border border-white/30 rounded-2xl overflow-hidden hover:shadow-xl hover:border-white/50 transition-all duration-300 h-full flex flex-col"
       >

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import React, { useEffect, useState, Suspense } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, ArrowLeft, ExternalLink, Calendar, Tag, TrendingUp, Zap, BarChart3, X } from 'lucide-react';
 import Link from 'next/link';
 import DarkVeil from '@/app/components/DarkVeil-Background';
@@ -9,7 +9,7 @@ import DarkVeil from '@/app/components/DarkVeil-Background';
 type ArticleData = {
   id: number;
   title: string;
-  url: string;
+  url?: string;
   source: string;
   original_content: string;
   content: string;
@@ -30,12 +30,26 @@ type RankedArticle = {
     image?: string;
     original_content?: string;
     cleaned_content?: string;
+    url?: string;
   };
 };
 
 export default function ArticleDetailPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-black">
+        <Loader2 className="w-8 h-8 text-white animate-spin" />
+      </div>
+    }>
+      <ArticleDetailContent />
+    </Suspense>
+  );
+}
+
+function ArticleDetailContent() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const docId = params.id as string;
   
   const [article, setArticle] = useState<ArticleData | null>(null);
@@ -65,18 +79,21 @@ export default function ArticleDetailPage() {
         const data = await response.json();
         setArticle(data);
 
-        // Fetch rankings based on article title
-        if (data.title) {
-          setSearchQuery(data.title); // Save the query
+        // Get query from URL params or use article title as fallback
+        const queryFromParams = searchParams.get('q') || data.title;
+        
+        // Fetch rankings based on query
+        if (queryFromParams) {
+          setSearchQuery(queryFromParams); // Save the query
           const searchResponse = await fetch('/api/search', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              query: data.title,
+              query: queryFromParams,
               algorithm: 'both',
-              top_k: 6 // Get 6 to show 5 (excluding current article if present)
+              top_k: 20 // Get more results to ensure we find current article
             }),
           });
 
@@ -86,22 +103,54 @@ export default function ArticleDetailPage() {
             const tfidfResults = searchData.results.tfidf || [];
             const bm25Results = searchData.results.bm25 || [];
             
+            console.log('Current docId:', docId);
+            console.log('TF-IDF results:', tfidfResults.map((r: RankedArticle) => ({ doc_id: r.doc_id, score: r.score })));
+            console.log('BM25 results:', bm25Results.map((r: RankedArticle) => ({ doc_id: r.doc_id, score: r.score })));
+            
             // Find current article's score and rank
-            const tfidfCurrentIndex = tfidfResults.findIndex((r: RankedArticle) => r.doc_id === docId);
-            const bm25CurrentIndex = bm25Results.findIndex((r: RankedArticle) => r.doc_id === docId);
+            // Try both exact match and URL match
+            const tfidfCurrentIndex = tfidfResults.findIndex((r: RankedArticle) => {
+              const rDocId = String(r.doc_id);
+              const currentDocId = String(docId);
+              return rDocId === currentDocId || 
+                     r.document?.url === currentDocId || 
+                     rDocId.includes(currentDocId) || 
+                     currentDocId.includes(rDocId);
+            });
+            const bm25CurrentIndex = bm25Results.findIndex((r: RankedArticle) => {
+              const rDocId = String(r.doc_id);
+              const currentDocId = String(docId);
+              return rDocId === currentDocId || 
+                     r.document?.url === currentDocId || 
+                     rDocId.includes(currentDocId) || 
+                     currentDocId.includes(rDocId);
+            });
+            
+            console.log('TF-IDF index:', tfidfCurrentIndex);
+            console.log('BM25 index:', bm25CurrentIndex);
             
             if (tfidfCurrentIndex !== -1) {
               setCurrentTfidfScore(tfidfResults[tfidfCurrentIndex].score);
               setCurrentTfidfRank(tfidfCurrentIndex + 1);
+              console.log('Set TF-IDF score:', tfidfResults[tfidfCurrentIndex].score, 'rank:', tfidfCurrentIndex + 1);
             }
             
             if (bm25CurrentIndex !== -1) {
               setCurrentBm25Score(bm25Results[bm25CurrentIndex].score);
               setCurrentBm25Rank(bm25CurrentIndex + 1);
+              console.log('Set BM25 score:', bm25Results[bm25CurrentIndex].score, 'rank:', bm25CurrentIndex + 1);
             }
             
-            setTfidfRanking(tfidfResults.filter((r: RankedArticle) => r.doc_id !== docId).slice(0, 5));
-            setBm25Ranking(bm25Results.filter((r: RankedArticle) => r.doc_id !== docId).slice(0, 5));
+            setTfidfRanking(tfidfResults.filter((r: RankedArticle) => {
+              const rDocId = String(r.doc_id);
+              const currentDocId = String(docId);
+              return rDocId !== currentDocId && r.document?.url !== currentDocId;
+            }).slice(0, 5));
+            setBm25Ranking(bm25Results.filter((r: RankedArticle) => {
+              const rDocId = String(r.doc_id);
+              const currentDocId = String(docId);
+              return rDocId !== currentDocId && r.document?.url !== currentDocId;
+            }).slice(0, 5));
           }
         }
       } catch (err) {
@@ -115,7 +164,7 @@ export default function ArticleDetailPage() {
     if (docId) {
       fetchArticle();
     }
-  }, [docId]);
+  }, [docId, searchParams]);
 
   const getImagePath = (image: string | number) => {
     const imageStr = String(image);
@@ -446,14 +495,14 @@ export default function ArticleDetailPage() {
                     <div>
                       <p className="text-sm text-blue-300 mb-1">Relevance Score</p>
                       <p className="text-3xl font-black text-blue-400">
-                        {currentTfidfScore > 0 ? currentTfidfScore.toFixed(4) : 'N/A'}
+                        {currentTfidfScore !== null && currentTfidfScore !== undefined ? currentTfidfScore.toFixed(4) : 'N/A'}
                       </p>
                     </div>
                     
                     <div className="pt-3 border-t border-blue-500/30">
                       <p className="text-sm text-blue-300 mb-1">Rank Position</p>
                       <p className="text-2xl font-bold text-white">
-                        #{currentTfidfRank > 0 ? currentTfidfRank : 'N/A'}
+                        #{currentTfidfRank !== null && currentTfidfRank !== undefined && currentTfidfRank > 0 ? currentTfidfRank : 'N/A'}
                       </p>
                     </div>
                   </div>
@@ -470,14 +519,14 @@ export default function ArticleDetailPage() {
                     <div>
                       <p className="text-sm text-purple-300 mb-1">Relevance Score</p>
                       <p className="text-3xl font-black text-purple-400">
-                        {currentBm25Score > 0 ? currentBm25Score.toFixed(4) : 'N/A'}
+                        {currentBm25Score !== null && currentBm25Score !== undefined ? currentBm25Score.toFixed(4) : 'N/A'}
                       </p>
                     </div>
                     
                     <div className="pt-3 border-t border-purple-500/30">
                       <p className="text-sm text-purple-300 mb-1">Rank Position</p>
                       <p className="text-2xl font-bold text-white">
-                        #{currentBm25Rank > 0 ? currentBm25Rank : 'N/A'}
+                        #{currentBm25Rank !== null && currentBm25Rank !== undefined && currentBm25Rank > 0 ? currentBm25Rank : 'N/A'}
                       </p>
                     </div>
                   </div>
