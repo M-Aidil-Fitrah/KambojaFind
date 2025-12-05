@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     const combinedSuggestions = [
       ...Array.from(suggestions).slice(0, 5),
       ...Array.from(keywords).slice(0, 3)
-    ].slice(0, 8);
+    ].slice(0, 3);
 
     return NextResponse.json({
       query,
