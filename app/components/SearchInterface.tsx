@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search } from 'lucide-react';
+import { Search, Clock } from 'lucide-react';
 import DarkVeil from './DarkVeil-Background';
 import TrueFocus from './TrueFocus-Text';
 import DecryptedText from './DecryptedText';
@@ -24,20 +24,97 @@ export default function SearchInterface() {
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [isSearchActive, setIsSearchActive] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch suggestions when query changes
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      if (query.trim().length < 2) {
+        setSuggestions([]);
+        setShowSuggestions(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/suggestions?q=${encodeURIComponent(query.trim())}`);
+        if (response.ok) {
+          const data = await response.json();
+          setSuggestions(data.suggestions || []);
+          setShowSuggestions(data.suggestions?.length > 0);
+        }
+      } catch (error) {
+        console.error('Failed to fetch suggestions:', error);
+      }
+    };
+
+    const debounceTimer = setTimeout(fetchSuggestions, 200);
+    return () => clearTimeout(debounceTimer);
+  }, [query]);
+
+  // Handle click outside to close suggestions
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleSearchClick = () => {
     setIsSearchActive(true);
   };
 
-  const handleSearch = async (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent, suggestion?: string) => {
     e.preventDefault();
     
-    if (!query.trim()) {
+    const searchQuery = suggestion || query.trim();
+    if (!searchQuery) {
       return;
     }
     
     // Redirect to search results page
-    router.push(`/search?q=${encodeURIComponent(query.trim())}`);
+    router.push(`/search?q=${encodeURIComponent(searchQuery)}`);
+  };
+
+  const handleSuggestionClick = (suggestion: string) => {
+    setQuery(suggestion);
+    setShowSuggestions(false);
+    // Auto submit when suggestion is clicked
+    router.push(`/search?q=${encodeURIComponent(suggestion)}`);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedIndex(prev => 
+          prev < suggestions.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedIndex(prev => prev > 0 ? prev - 1 : -1);
+        break;
+      case 'Enter':
+        if (selectedIndex >= 0) {
+          e.preventDefault();
+          handleSuggestionClick(suggestions[selectedIndex]);
+        }
+        break;
+      case 'Escape':
+        setShowSuggestions(false);
+        setSelectedIndex(-1);
+        break;
+    }
   };
 
   return (
@@ -115,16 +192,40 @@ export default function SearchInterface() {
               </button>
             ) : (
               /* Expanded Input State */
-              <div className="relative">
+              <div className="relative" ref={suggestionsRef}>
                 <Search className="absolute left-6 top-1/2 transform -translate-y-1/2 text-white/50 w-6 h-6 z-10" />
                 <input
+                  ref={inputRef}
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
                   placeholder="Cari berita WNI Kamboja, online scam, deportasi..."
                   autoFocus
                   className="w-full pl-16 pr-6 py-4 text-lg bg-white/5 backdrop-blur-2xl border border-white/30 rounded-full focus:border-white/60 focus:outline-none focus:ring-4 focus:ring-white/10 focus:shadow-[0_8px_32px_0_rgba(255,255,255,0.15)] text-white placeholder:text-white/40 transition-all animate-expand-input shadow-[0_4px_16px_0_rgba(0,0,0,0.3)]"
                 />
+                
+                {/* Suggestions Dropdown */}
+                {showSuggestions && suggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-black/90 backdrop-blur-xl border border-white/20 rounded-2xl overflow-hidden shadow-2xl z-50 max-h-96 overflow-y-auto">
+                    {suggestions.map((suggestion, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => handleSuggestionClick(suggestion)}
+                        className={`w-full text-left px-6 py-3 flex items-center gap-3 transition-all ${
+                          index === selectedIndex
+                            ? 'bg-white/20'
+                            : 'hover:bg-white/10'
+                        } ${index !== suggestions.length - 1 ? 'border-b border-white/10' : ''}`}
+                      >
+                        <Search className="w-4 h-4 text-white/50 shrink-0" />
+                        <span className="text-white text-sm flex-1 truncate">{suggestion}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
