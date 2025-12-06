@@ -49,7 +49,7 @@ KambojaFind adalah sistem pencarian berita berbasis Information Retrieval yang m
 ## Teknologi Stack
 
 ### Frontend
-- **Next.js 16.0.6** (React 19.2.0) - Framework full-stack
+- **Next.js 16.0.7** (React 19.2.1) - Framework full-stack
 - **TypeScript** - Type safety
 - **Tailwind CSS 4** - Styling
 - **Lucide React** - Icon library
