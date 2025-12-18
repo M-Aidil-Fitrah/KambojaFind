@@ -1,135 +1,132 @@
-import { preprocessQuery } from '../preprocessing';
-
-interface Posting {
-  doc_id: string;
-  position: number;
-}
-
-interface InvertedIndex {
-  [term: string]: Posting[];
-}
-
-interface IndexData {
-  inverted_index: InvertedIndex;
-  doc_lengths: { [doc_id: string]: number };
-  doc_freq: { [term: string]: number };
-  total_docs: number;
-  avg_doc_length: number;
-}
-
-interface Document {
-  id?: string;
-  _id?: string;
-  url?: string;
-  title?: string;
-  content?: string;
-  cleaned_content?: string;
-  [key: string]: any;
-}
+import {
+  processQuery,
+  getPreprocessedCorpus,
+  getInvertedIndex,
+  getDocumentsWithTerm,
+  getDocumentFrequency,
+  getDocumentLength,
+  getTotalDocuments,
+  getAverageDocumentLength,
+  getDocumentTokens,
+  type ProcessedDocument,
+} from '../preprocessing';
 
 export interface SearchResult {
   doc_id: string;
   score: number;
-  document: Document;
+  document: ProcessedDocument;
 }
 
 export class BM25SearchEngine {
-  private invertedIndex: InvertedIndex;
-  private docLengths: { [doc_id: string]: number };
-  private docFreq: { [term: string]: number };
+  private corpus: ProcessedDocument[];
   private totalDocs: number;
   private avgDocLength: number;
   private k1: number;
   private b: number;
-  private docMap: Map<string, Document>;
 
-  constructor(indexData: IndexData, corpus: Document[], k1: number = 1.5, b: number = 0.75) {
-    this.invertedIndex = indexData.inverted_index;
-    this.docLengths = indexData.doc_lengths;
-    this.docFreq = indexData.doc_freq;
-    this.totalDocs = indexData.total_docs;
-    this.avgDocLength = indexData.avg_doc_length;
+  constructor(k1: number = 1.5, b: number = 0.75) {
+    this.corpus = getPreprocessedCorpus();
+    this.totalDocs = getTotalDocuments();
+    this.avgDocLength = getAverageDocumentLength();
     this.k1 = k1;
     this.b = b;
-
-    // Create doc_id to document mapping
-    this.docMap = new Map();
-    corpus.forEach((doc, idx) => {
-      const docId = doc.id || doc._id || doc.url || `doc_${idx}`;
-      this.docMap.set(docId, doc);
-    });
   }
 
   private calculateIDF(term: string): number {
-    const df = this.docFreq[term] || 0;
+    const df = getDocumentFrequency(term);
     return Math.log((this.totalDocs - df + 0.5) / (df + 0.5) + 1);
   }
 
-  private getTermFrequency(term: string, docId: string): number {
-    if (!this.invertedIndex[term]) return 0;
-
-    let count = 0;
-    for (const posting of this.invertedIndex[term]) {
-      if (posting.doc_id === docId) {
-        count += 1;
-      }
-    }
-    return count;
+  private getTermFrequency(term: string, docId: number): number {
+    const tokens = getDocumentTokens(docId);
+    return tokens.filter(t => t === term.toLowerCase()).length;
   }
 
-  private calculateBM25Score(queryTerms: string[], docId: string): number {
+  private calculateTitleMatchBonus(query: string, title: string): number {
+    const queryLower = query.toLowerCase();
+    const titleLower = title.toLowerCase();
+    const queryWords = queryLower.split(/\s+/).filter(w => w.length > 0);
+    const titleWords = titleLower.split(/\s+/);
+    
+    // Check for exact phrase match in title
+    if (titleLower.includes(queryLower)) {
+      return 2.0; // 200% boost for exact phrase match
+    }
+    
+    // Count matching words
+    let matchCount = 0;
+    for (const qWord of queryWords) {
+      if (titleWords.some(tWord => tWord.includes(qWord) || qWord.includes(tWord))) {
+        matchCount++;
+      }
+    }
+    
+    const matchRatio = matchCount / queryWords.length;
+    
+    // Return boost based on match ratio
+    if (matchRatio >= 0.9) return 1.5;  // 150% boost for near-perfect match
+    if (matchRatio >= 0.7) return 1.0;  // 100% boost for good match
+    if (matchRatio >= 0.5) return 0.5;  // 50% boost for partial match
+    if (matchRatio >= 0.3) return 0.25; // 25% boost for weak match
+    
+    return 0; // No boost
+  }
+
+  private calculateBM25Score(queryTerms: string[], docId: number): number {
     let score = 0.0;
-    const docLength = this.docLengths[docId] || 0;
+    const docLength = getDocumentLength(docId);
 
     for (const term of new Set(queryTerms)) {
-      if (this.invertedIndex[term]) {
-        const tf = this.getTermFrequency(term, docId);
+      const tf = this.getTermFrequency(term, docId);
 
-        if (tf > 0) {
-          const idf = this.calculateIDF(term);
+      if (tf > 0) {
+        const idf = this.calculateIDF(term);
 
-          // Length normalization
-          const norm = 1 - this.b + this.b * (docLength / this.avgDocLength);
+        // Length normalization
+        const norm = 1 - this.b + this.b * (docLength / this.avgDocLength);
 
-          // BM25 formula
-          const bm25Component = (tf * (this.k1 + 1)) / (tf + this.k1 * norm);
+        // BM25 formula
+        const bm25Component = (tf * (this.k1 + 1)) / (tf + this.k1 * norm);
 
-          score += idf * bm25Component;
-        }
+        score += idf * bm25Component;
       }
     }
 
     return score;
   }
 
-  search(query: string, topK: number = 10): SearchResult[] {
-    // Preprocess query
-    const queryTerms = preprocessQuery(query);
+  search(query: string, topK: number = 50): SearchResult[] {
+    // Preprocess query using simple tokenization
+    const queryTerms = processQuery(query);
 
     if (queryTerms.length === 0) {
       return [];
     }
 
-    // Get candidate documents
-    const candidateDocs = new Set<string>();
+    // Get candidate documents from inverted index
+    const candidateDocs = new Set<number>();
     for (const term of queryTerms) {
-      if (this.invertedIndex[term]) {
-        for (const posting of this.invertedIndex[term]) {
-          candidateDocs.add(posting.doc_id);
-        }
-      }
+      const docsWithTerm = getDocumentsWithTerm(term);
+      docsWithTerm.forEach(docId => candidateDocs.add(docId));
     }
 
-    // Calculate BM25 scores
+    // Calculate BM25 scores with title boost
     const scores: SearchResult[] = [];
     for (const docId of candidateDocs) {
-      const score = this.calculateBM25Score(queryTerms, docId);
+      let score = this.calculateBM25Score(queryTerms, docId);
       if (score > 0) {
-        scores.push({
-          doc_id: docId,
-          score: score,
-          document: this.docMap.get(docId) || {},
-        });
+        const doc = this.corpus.find(d => d.id === docId);
+        if (doc) {
+          // Apply title boost (using original query, not preprocessed)
+          const titleBoost = this.calculateTitleMatchBonus(query, doc.title);
+          score *= (1 + titleBoost);
+          
+          scores.push({
+            doc_id: String(docId),
+            score: score,
+            document: doc,
+          });
+        }
       }
     }
 
@@ -141,21 +138,12 @@ export class BM25SearchEngine {
 }
 
 // Helper function for easy search
-export function bm25Search(query: string, indexData: IndexData, corpus: Document[], topK: number = 10): SearchResult[] {
-  const engine = new BM25SearchEngine(indexData, corpus);
+export function bm25Search(query: string, topK: number = 50, k1: number = 1.5, b: number = 0.75): SearchResult[] {
+  const engine = new BM25SearchEngine(k1, b);
   return engine.search(query, topK);
 }
 
-// Async wrapper for evaluation that loads data
-export async function bm25SearchAsync(query: string, topK: number = 10): Promise<SearchResult[]> {
-  const fs = await import('fs/promises');
-  const path = await import('path');
-  
-  const indexPath = path.join(process.cwd(), 'preprocessing', 'dataset', 'inverted_index.json');
-  const corpusPath = path.join(process.cwd(), 'preprocessing', 'dataset', 'preprocessed_corpus.json');
-  
-  const indexData = JSON.parse(await fs.readFile(indexPath, 'utf-8'));
-  const corpus = JSON.parse(await fs.readFile(corpusPath, 'utf-8'));
-  
-  return bm25Search(query, indexData, corpus, topK);
+// Async wrapper for evaluation
+export async function bm25SearchAsync(query: string, topK: number = 50): Promise<SearchResult[]> {
+  return bm25Search(query, topK);
 }

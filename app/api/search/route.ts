@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TFIDFSearchEngine } from '@/lib/search/tfidf-search';
 import { BM25SearchEngine } from '@/lib/search/bm25-search';
-import invertedIndexData from '@/preprocessing/dataset/inverted_index.json';
-import corpusData from '@/preprocessing/dataset/stemmed_corpus.json';
 
 // Initialize search engines (cached)
 let tfidfEngine: TFIDFSearchEngine | null = null;
@@ -10,8 +8,8 @@ let bm25Engine: BM25SearchEngine | null = null;
 
 function getEngines() {
   if (!tfidfEngine || !bm25Engine) {
-    tfidfEngine = new TFIDFSearchEngine(invertedIndexData as any, corpusData as any);
-    bm25Engine = new BM25SearchEngine(invertedIndexData as any, corpusData as any);
+    tfidfEngine = new TFIDFSearchEngine();
+    bm25Engine = new BM25SearchEngine();
   }
   return { tfidfEngine, bm25Engine };
 }
